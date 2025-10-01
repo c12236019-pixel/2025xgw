@@ -15,10 +15,10 @@ client_id    <- "gtgejjyDhDhcsx1D2Tjq"     # 본인 값으로 교체
 client_secret<- "bm3LYc0dlk" # 본인 값으로 교체
 
 query <- URLencode(enc2utf8("삼성전자"))
-req_url   <- paste0(search_url, "?query=", query, "&display=100&start=1&sort=sim")
+url   <- paste0(search_url, "?query=", query, "&display=100&start=1&sort=sim")
 
 res <- GET(
-  req_url,
+  url,
   add_headers(
     "X-Naver-Client-Id"     = client_id,
     "X-Naver-Client-Secret" = client_secret
@@ -61,7 +61,7 @@ wordcloud(
 )
 
 # ---- save PNG file ----
-png("wordcloud.png", width = 1200, height = 800)
+png("wordcloud3.png", width = 1200, height = 800)
 wordcloud(
   words        = freq_df$term,
   freq         = freq_df$freq,
@@ -73,3 +73,63 @@ wordcloud(
   colors       = brewer.pal(8, "Dark2")
 )
 dev.off()
+
+
+
+#download 
+search_url   <- "https://openapi.naver.com/v1/search/news.json"
+client_id    <- "gtgejjyDhDhcsx1D2Tjq"     # 본인 값으로 교체
+client_secret<- "bm3LYc0dlk" # 본인 값으로 교체
+
+query <- URLencode(enc2utf8("삼성전자"))
+url   <- paste0(search_url, "?query=", query, "&display=100&start=1&sort=sim")
+
+
+res <- GET(
+  url,
+  add_headers(
+    "X-Naver-Client-Id"     = client_id,
+    "X-Naver-Client-Secret" = client_secret
+  )
+)
+stop_for_status(res)
+
+txt <- content(res, as = "text", encoding = "UTF-8")
+dat <- fromJSON(txt)
+items  <- dat$items
+
+clean_title <- function(x){
+  x <- gsub("<[^>]+>", "", x)
+  x <- gsub("&quot;", "\"", x, fixed = TRUE)
+  x <- gsub("&amp;", "&", x, fixed = TRUE)
+  x
+}
+
+items$title <- clean_title(items$title)
+
+stopifnot(all(c("title", "link", "pubDate") %in% names(items)))
+
+
+lines <- c(
+  '<?xml version="1.0" encoding="UTF-8"?>',
+  '<items>',
+  sprintf(
+    " <item>\n  <title>%s</title>\n  <link>%s</link>\n  <pubDate>%s</pubDate>\n </item>",
+    df$title, df$link, df$pubDate
+  ),
+  '</items>'
+)
+
+cat(lines, sep = "\n")
+
+writeLines(lines,"output.doc")
+
+extract_titles <- function(xml_lines) {
+  titles <- gsub(".*<title>(.*?)</title>.*", "\\1", xml_lines)
+  return(titles)
+}
+
+titles <- extract_titles(lines)
+
+max_word <- names(freq)[which.max(freq)]
+max_count <- max(freq)
